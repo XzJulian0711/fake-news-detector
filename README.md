@@ -1,4 +1,4 @@
-# 🏦 Predictor de Aprobación de Préstamos
+# Predictor de Aprobación de Préstamos
 
 Sistema inteligente de predicción de aprobación de préstamos bancarios usando Machine Learning con el algoritmo **LightGBM**. La aplicación permite a un usuario ingresar los datos de un solicitante de crédito y obtener una predicción instantánea sobre si el préstamo será aprobado o rechazado, junto con la probabilidad y confianza del modelo.
 
@@ -7,13 +7,13 @@ Sistema inteligente de predicción de aprobación de préstamos bancarios usando
 > **Aplicación desplegada:** [https://loan-approval-predictor.streamlit.app](https://loan-approval-predictor.streamlit.app)  
 > **Repositorio GitHub:** [https://github.com/tu-usuario/loan-approval-predictor](https://github.com/tu-usuario/loan-approval-predictor)
 
-## 📋 Descripción del Problema
+## Descripción del Problema
 
 La aprobación de préstamos bancarios es un proceso crítico en la industria financiera. Tradicionalmente, esta decisión se toma de forma manual por analistas de crédito, lo cual puede ser lento, inconsistente y propenso a sesgos humanos. Este proyecto automatiza el proceso de evaluación de solicitudes de préstamo mediante un modelo de Machine Learning que analiza 11 variables del solicitante para predecir si el crédito debe ser aprobado o rechazado.
 
 El modelo aprende patrones de decisión a partir de datos históricos reales de solicitudes de préstamos, considerando factores como el ingreso anual, el monto solicitado, el historial crediticio (CIBIL score), los activos del solicitante y su perfil demográfico.
 
-## 🤖 Algoritmo Utilizado
+##  Algoritmo Utilizado
 
 **LightGBM** (Light Gradient Boosting Machine) es un framework de gradient boosting desarrollado por Microsoft que utiliza algoritmos de aprendizaje basados en árboles de decisión. Se eligió este algoritmo porque:
 
@@ -36,7 +36,7 @@ El modelo aprende patrones de decisión a partir de datos históricos reales de 
 
 > *Las métricas se actualizarán tras el entrenamiento final del modelo.*
 
-## 📊 Dataset
+## Dataset
 
 - **Fuente:** [Loan Approval Prediction Dataset — Kaggle](https://www.kaggle.com/datasets/architsharma01/loan-approval-prediction-dataset)
 - **Autor:** Archit Sharma
@@ -61,7 +61,7 @@ El modelo aprende patrones de decisión a partir de datos históricos reales de 
 | bank_asset_value | Numérica | Valor de activos bancarios |
 | **loan_status** | **Target** | **Approved / Rejected** |
 
-## 🚀 Instalación Local
+## Instalación Local
 
 ### Requisitos Previos
 
@@ -90,7 +90,7 @@ streamlit run app/app.py
 
 La aplicación se abrirá automáticamente en tu navegador en `http://localhost:8501`.
 
-## 📖 Uso de la Aplicación
+## Uso de la Aplicación
 
 1. Abre la aplicación en tu navegador (local o URL desplegada)
 2. Completa el formulario con los datos del solicitante en las 4 secciones: datos personales, información financiera, historial crediticio y valor de activos
@@ -98,7 +98,7 @@ La aplicación se abrirá automáticamente en tu navegador en `http://localhost:
 4. Visualiza el resultado: aprobación o rechazo, probabilidad y confianza del modelo
 5. Opcionalmente, expande la sección de datos ingresados para verificar la información
 
-## 📁 Estructura del Proyecto
+## Estructura del Proyecto
 
 ```
 loan-approval-predictor/
@@ -122,7 +122,7 @@ loan-approval-predictor/
     └── presentacion.pdf       # Presentación final del proyecto
 ```
 
-## 👥 Autores
+##  Autores
 
 | Nombre | Rol | Responsabilidades |
 |--------|-----|-------------------|
@@ -130,11 +130,11 @@ loan-approval-predictor/
 | Persona 2 | App Developer & DevOps | Aplicación Streamlit, despliegue en la nube, repositorio |
 | Persona 3 | Technical Writer | README, documentación, presentación, diagramas |
 
-## 📄 Licencia
+## Licencia
 
 Este proyecto está bajo la Licencia MIT. Consulta el archivo `LICENSE` para más detalles.
 
-## 📚 Referencias
+## Referencias
 
 1. T. Ke *et al.*, "LightGBM: A highly efficient gradient boosting decision tree," *Advances in Neural Information Processing Systems*, vol. 30, 2017.
 2. A. Sharma, "Loan Approval Prediction Dataset," Kaggle, 2023. [En línea]. Disponible en: https://www.kaggle.com/datasets/architsharma01/loan-approval-prediction-dataset
