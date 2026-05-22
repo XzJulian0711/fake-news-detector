@@ -1,0 +1,47 @@
+# ============================================
+# .gitignore — Loan Approval Predictor
+# ============================================
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+eggs/
+*.egg
+
+# === Virtual Environments ===
+venv/
+env/
+.env
+.venv/
+
+# === Jupyter Notebooks ===
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === OS ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Logs ===
+*.log
+logs/
+
+# === Misc ===
+*.csv.bak
+*.tmp
+.pytest_cache/
+htmlcov/
+.coverage
