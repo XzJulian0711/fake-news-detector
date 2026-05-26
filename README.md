@@ -6,7 +6,7 @@ La aplicación está **localizada para Colombia**: el usuario ingresa montos en 
 
 ---
 
-## 🔗 Demostración
+## Demostración
 
 - **Aplicación desplegada:** [https://loan-approval-predictor-xuszadwbpjrf6wjaj6yedh.streamlit.app](https://loan-approval-predictor-xuszadwbpjrf6wjaj6yedh.streamlit.app)
 - **Dataset:** [Loan Approval Prediction Dataset — Kaggle](https://www.kaggle.com/datasets/architsharma01/loan-approval-prediction-dataset)
