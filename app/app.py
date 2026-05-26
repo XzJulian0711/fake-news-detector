@@ -241,7 +241,7 @@ with col3:
 st.divider()
 
 # --- Fila 2: Datos financieros ---
-st.markdown("### 💰 Información Financiera")
+st.markdown("###  Información Financiera")
 col4, col5, col6 = st.columns(3)
 
 with col4:
@@ -279,7 +279,7 @@ with col6:
 # --- Fila 3: Puntaje crediticio ---
 st.markdown("### Historial Crediticio")
 cibil_score = st.slider(
-    "🏆 Puntaje CIBIL (Credit Score)",
+    " Puntaje CIBIL (Credit Score)",
     min_value=300,
     max_value=900,
     value=650,
@@ -289,13 +289,13 @@ cibil_score = st.slider(
 
 # Mostrar indicador visual del puntaje
 if cibil_score >= 750:
-    st.success(f"Puntaje CIBIL: {cibil_score} — Excelente ⭐")
+    st.success(f"Puntaje CIBIL: {cibil_score} — Excelente ")
 elif cibil_score >= 650:
-    st.info(f"Puntaje CIBIL: {cibil_score} — Bueno 👍")
+    st.info(f"Puntaje CIBIL: {cibil_score} — Bueno ")
 elif cibil_score >= 500:
-    st.warning(f"Puntaje CIBIL: {cibil_score} — Regular ⚠️")
+    st.warning(f"Puntaje CIBIL: {cibil_score} — Regular ")
 else:
-    st.error(f"Puntaje CIBIL: {cibil_score} — Bajo 🔴")
+    st.error(f"Puntaje CIBIL: {cibil_score} — Bajo ")
 
 st.divider()
 
@@ -408,7 +408,7 @@ if predict_button:
     elif result["prediction"] == 0:
         st.markdown(f"""
         <div class="result-rejected">
-            <h2>❌ Préstamo RECHAZADO</h2>
+            <h2> Préstamo RECHAZADO</h2>
             <p>El modelo predice que este préstamo será rechazado con una confianza del {result['confidence']}%</p>
         </div>
         """, unsafe_allow_html=True)

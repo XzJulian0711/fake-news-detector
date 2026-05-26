@@ -30,7 +30,7 @@ def load_model(model_path="models/modelo.pkl"):
         )
     
     model = joblib.load(model_path)
-    print(f"✅ Modelo cargado correctamente desde: {model_path}")
+    print(f" Modelo cargado correctamente desde: {model_path}")
     return model
 
 
