@@ -372,9 +372,9 @@ Inteligencia Artificial I · Fundación Universitaria Los Libertadores
 
 | Nombre                            | Rol                          | Responsabilidades                                            |
 | --------------------------------- | ---------------------------- | ------------------------------------------------------------ |
-| **Julian Camilo Cárdenas Torres** | Data & ML Engineer           | Dataset, EDA, entrenamiento LightGBM, serialización y verificación |
-| **Jhon Alexander Vargas Catuche** | App Developer & DevOps       | Aplicación Streamlit, localización Colombia, despliegue cloud |
-| **Juan Sebastián Vásquez Peña**   | Technical Writer & QA        | Documentación, presentación, validación de métricas          |
+| **Juan Sebastian Vasques Peña** | Data & ML Engineer           | Dataset, EDA, entrenamiento LightGBM, serialización y verificación |
+| **Julian Camilo Cárdenas Torres** | App Developer & DevOps       | Aplicación Streamlit, localización Colombia, despliegue cloud |
+| **Jhon Alexander Vargas Catuche**   | Technical Writer & QA        | Documentación, presentación, validación de métricas          |
 
 ---
 
