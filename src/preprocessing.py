@@ -1,169 +1,154 @@
 # ============================================
 # src/preprocessing.py — Funciones de preprocesamiento
 # ============================================
-# Este módulo contiene las funciones para preparar los datos
-# tanto para entrenamiento como para predicción en la app.
+# Limpieza y preparación de datos para el dataset de aprobación
+# de préstamos (Loan Approval), tanto para entrenamiento como
+# para la predicción en vivo desde la app web.
+#
+# IMPORTANTE: El modelo LightGBM fue entrenado con 14 features:
+#   las 11 originales + 3 derivadas (feature engineering):
+#     - debt_to_income
+#     - total_assets
+#     - assets_to_loan
+# Estas 3 features se generan aquí para alimentar al modelo con el
+# formato EXACTO que vio durante el entrenamiento.
 
 import pandas as pd
 import numpy as np
 import joblib
 import os
 
-
 # --- Mapeos de variables categóricas ---
-# Estos mapeos convierten texto a números para que el modelo los entienda.
-# Son los mismos que se usan en el notebook de entrenamiento.
+EDUCATION_MAP = {"Graduate": 1, "Not Graduate": 0}
+SELF_EMPLOYED_MAP = {"Yes": 1, "No": 0}
 
-EDUCATION_MAP = {
-    "Graduate": 1,
-    "Not Graduate": 0
-}
+# --- Orden EXACTO de las 14 features que espera el modelo ---
+FEATURE_COLS = [
+    "no_of_dependents", "education", "self_employed", "income_annum",
+    "loan_amount", "loan_term", "cibil_score", "residential_assets_value",
+    "commercial_assets_value", "luxury_assets_value", "bank_asset_value",
+    "debt_to_income", "total_assets", "assets_to_loan",
+]
 
-SELF_EMPLOYED_MAP = {
-    "Yes": 1,
-    "No": 0
-}
+ASSET_COLS = [
+    "residential_assets_value", "commercial_assets_value",
+    "luxury_assets_value", "bank_asset_value",
+]
 
 
-def load_encoders(models_path="models/"):
+def _add_engineered_features(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Carga los encoders/scalers guardados durante el entrenamiento.
-    Si no se usaron scalers (LightGBM no los necesita), retorna None.
-    
-    Parámetros:
-        models_path (str): Ruta a la carpeta de modelos
-    
-    Retorna:
-        dict: Diccionario con encoders cargados o None
+    Agrega las 3 features derivadas con las MISMAS fórmulas del
+    entrenamiento. El '+ 1' en denominadores evita división por cero.
+        debt_to_income = loan_amount / (income_annum + 1)
+        total_assets   = suma de los 4 activos
+        assets_to_loan = total_assets / (loan_amount + 1)
     """
-    scaler_path = os.path.join(models_path, "scaler.pkl")
-    
-    if os.path.exists(scaler_path):
-        scaler = joblib.load(scaler_path)
-        return {"scaler": scaler}
-    
-    # LightGBM no necesita normalización, así que puede no existir scaler
-    return None
+    df = df.copy()
+    df["debt_to_income"] = df["loan_amount"] / (df["income_annum"] + 1)
+    df["total_assets"] = df[ASSET_COLS].sum(axis=1)
+    df["assets_to_loan"] = df["total_assets"] / (df["loan_amount"] + 1)
+    return df
 
 
 def preprocess_input(data: dict) -> pd.DataFrame:
     """
-    Preprocesa los datos de entrada del usuario para que el modelo
-    pueda hacer la predicción.
-    
-    Este es el paso crítico: convierte los inputs del formulario
-    de Streamlit al formato exacto que espera el modelo entrenado.
-    
-    Parámetros:
-        data (dict): Diccionario con los datos del formulario.
-            Ejemplo:
-            {
-                "no_of_dependents": 2,
-                "education": "Graduate",
-                "self_employed": "No",
-                "income_annum": 5000000,
-                "loan_amount": 15000000,
-                "loan_term": 12,
-                "cibil_score": 700,
-                "residential_assets_value": 7000000,
-                "commercial_assets_value": 3000000,
-                "luxury_assets_value": 5000000,
-                "bank_asset_value": 4000000
-            }
-    
-    Retorna:
-        pd.DataFrame: DataFrame con una fila lista para predicción
+    Preprocesa los datos del formulario de Streamlit para la predicción.
+    1) DataFrame de una fila  2) codifica categóricas si son texto
+    3) crea las 3 derivadas   4) reordena a las 14 columnas del modelo.
     """
-    # Crear DataFrame con una sola fila
     df = pd.DataFrame([data])
-    
-    # --- Codificar variables categóricas ---
-    # Convertir "Graduate"/"Not Graduate" a 1/0
-    if "education" in df.columns:
+
+    if "education" in df.columns and df["education"].dtype == object:
         df["education"] = df["education"].map(EDUCATION_MAP)
-    
-    # Convertir "Yes"/"No" a 1/0
-    if "self_employed" in df.columns:
+    if "self_employed" in df.columns and df["self_employed"].dtype == object:
         df["self_employed"] = df["self_employed"].map(SELF_EMPLOYED_MAP)
-    
-    # --- Orden de columnas ---
-    # El modelo espera las features en este orden exacto
-    expected_columns = [
-        "no_of_dependents",
-        "education",
-        "self_employed",
-        "income_annum",
-        "loan_amount",
-        "loan_term",
-        "cibil_score",
-        "residential_assets_value",
-        "commercial_assets_value",
-        "luxury_assets_value",
-        "bank_asset_value"
-    ]
-    
-    # Reordenar columnas al orden esperado
-    df = df[expected_columns]
-    
+
+    df = _add_engineered_features(df)
+    df = df[FEATURE_COLS]
+
+    # Asegurar tipos numéricos (LightGBM exige int/float/bool, no str)
+    df = df.apply(pd.to_numeric, errors="coerce")
     return df
+
+
+def load_encoders(models_path="models/"):
+    """Carga scaler si existe. LightGBM no lo requiere, así que suele ser None."""
+    scaler_path = os.path.join(models_path, "scaler.pkl")
+    if os.path.exists(scaler_path):
+        return {"scaler": joblib.load(scaler_path)}
+    return None
 
 
 def clean_dataset(filepath: str) -> pd.DataFrame:
     """
-    Limpia el dataset original para entrenamiento.
-    Esta función la usa Persona 1 en el notebook.
-    
-    Pasos de limpieza:
-    1. Eliminar columna loan_id (no es feature predictiva)
-    2. Manejar valores nulos
-    3. Codificar variables categóricas
-    4. Eliminar duplicados
-    
-    Parámetros:
-        filepath (str): Ruta al archivo CSV original
-    
-    Retorna:
-        pd.DataFrame: Dataset limpio listo para entrenamiento
+    Limpia el dataset crudo y aplica el mismo feature engineering.
+    Devuelve el dataset con 14 features + target codificado.
     """
-    # Cargar datos
     df = pd.read_csv(filepath)
-    
-    # 1. Eliminar loan_id (no aporta información predictiva)
+    df.columns = df.columns.str.strip()
     if "loan_id" in df.columns:
         df = df.drop(columns=["loan_id"])
-    
-    # 2. Manejar valores nulos
-    # Variables numéricas: imputar con la mediana
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    for col in numeric_cols:
+
+    for col in df.select_dtypes(include=["object"]).columns:
+        df[col] = df[col].astype(str).str.strip()
+
+    for col in df.select_dtypes(include=[np.number]).columns:
         if df[col].isnull().sum() > 0:
             df[col] = df[col].fillna(df[col].median())
-    
-    # Variables categóricas: imputar con la moda
-    cat_cols = df.select_dtypes(include=["object"]).columns
-    for col in cat_cols:
+    for col in df.select_dtypes(include=["object"]).columns:
         if df[col].isnull().sum() > 0:
             df[col] = df[col].fillna(df[col].mode()[0])
-    
-    # 3. Eliminar duplicados
+
     df = df.drop_duplicates()
-    
-    # 4. Codificar variables categóricas
+
     if "education" in df.columns:
         df["education"] = df["education"].map(EDUCATION_MAP)
-    
     if "self_employed" in df.columns:
         df["self_employed"] = df["self_employed"].map(SELF_EMPLOYED_MAP)
-    
-    # Codificar target: loan_status
     if "loan_status" in df.columns:
-        df["loan_status"] = df["loan_status"].map({
-            "Approved": 1,
-            "Rejected": 0
-        })
-    
-    # 5. Limpiar espacios en blanco en strings antes de codificar
-    for col in df.select_dtypes(include=["object"]).columns:
-        df[col] = df[col].str.strip()
-    
+        df["loan_status"] = df["loan_status"].map({"Approved": 1, "Rejected": 0})
+
+    df = _add_engineered_features(df)
     return df
+
+
+# ============================================
+# Pipeline para el NOTEBOOK de entrenamiento
+# ============================================
+# Lo usa notebooks/01_training.ipynb. Reutiliza clean_dataset()
+# (limpieza + las mismas 14 features) y añade el split train/test.
+
+from sklearn.model_selection import train_test_split
+
+TARGET_COL = "loan_status"
+
+
+def run_preprocessing_pipeline(raw_path: str, output_path: str = None,
+                               test_size: float = 0.2, random_state: int = 42):
+    """
+    Pipeline completo para entrenamiento:
+    limpia el CSV crudo, crea las 14 features, guarda el procesado
+    (opcional) y devuelve el split estratificado.
+
+    Garantiza que el notebook entrene con EXACTAMENTE las mismas
+    features que la app genera en vivo (reproducibilidad).
+
+    Retorna
+    -------
+    X_train, X_test, y_train, y_test
+    """
+    df = clean_dataset(raw_path)
+
+    if output_path:
+        df.to_csv(output_path, index=False)
+        print(f"[pipeline] Dataset procesado guardado en: {output_path}")
+
+    X = df.drop(columns=[TARGET_COL])
+    y = df[TARGET_COL]
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=random_state, stratify=y
+    )
+    print(f"[pipeline] Train: {len(X_train):,} | Test: {len(X_test):,} | Features: {X.shape[1]}")
+    return X_train, X_test, y_train, y_test
