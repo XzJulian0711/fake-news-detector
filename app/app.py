@@ -182,7 +182,7 @@ with st.sidebar:
     
     st.markdown("### Links")
     st.markdown("""
-    - [ Repositorio GitHub](https://github.com/tu-usuario/loan-approval-predictor)
+    - [ Repositorio GitHub](https://github.com/XzJulian0711/loan-approval-predictor)
     - [ Dataset en Kaggle](https://www.kaggle.com/datasets/architsharma01/loan-approval-prediction-dataset)
     """)
 
