@@ -144,7 +144,7 @@ def get_model():
         if os.path.exists(path):
             return load_model(path)
     
-    st.error("⚠️ No se encontró el modelo. Asegúrate de que 'models/modelo.pkl' existe.")
+    st.error("No se encontró el modelo. Asegúrate de que 'models/modelo.pkl' existe.")
     st.stop()
 
 
@@ -152,7 +152,7 @@ def get_model():
 # SIDEBAR — Información del proyecto
 # ============================================
 with st.sidebar:
-    st.markdown("## 🏦 Sobre el Proyecto")
+    st.markdown("##  Sobre el Proyecto")
     st.markdown("""
     Esta aplicación predice si un préstamo será **aprobado o rechazado** 
     usando un modelo de Machine Learning **LightGBM**.
@@ -160,7 +160,7 @@ with st.sidebar:
     
     st.divider()
     
-    st.markdown("### 📊 Datos del Modelo")
+    st.markdown("###  Datos del Modelo")
     st.markdown("""
     - **Algoritmo:** LightGBM
     - **Dataset:** Loan Approval Prediction (Kaggle)
@@ -171,7 +171,7 @@ with st.sidebar:
     
     st.divider()
     
-    st.markdown("### 👥 Equipo")
+    st.markdown("###  Equipo")
     st.markdown("""
     - **Persona 1** — Data & Model
     - **Persona 2** — App & Deployment  
@@ -180,10 +180,10 @@ with st.sidebar:
     
     st.divider()
     
-    st.markdown("### 🔗 Links")
+    st.markdown("### Links")
     st.markdown("""
-    - [📂 Repositorio GitHub](https://github.com/tu-usuario/loan-approval-predictor)
-    - [📊 Dataset en Kaggle](https://www.kaggle.com/datasets/architsharma01/loan-approval-prediction-dataset)
+    - [ Repositorio GitHub](https://github.com/tu-usuario/loan-approval-predictor)
+    - [ Dataset en Kaggle](https://www.kaggle.com/datasets/architsharma01/loan-approval-prediction-dataset)
     """)
 
 
@@ -192,7 +192,7 @@ with st.sidebar:
 # ============================================
 st.markdown("""
 <div class="main-header">
-    <h1>🏦 Predictor de Aprobación de Préstamos</h1>
+    <h1> Predictor de Aprobación de Préstamos</h1>
     <p>Ingresa los datos del solicitante y obtén una predicción instantánea usando inteligencia artificial</p>
 </div>
 """, unsafe_allow_html=True)
@@ -207,14 +207,14 @@ model = get_model()
 # ============================================
 # FORMULARIO DE ENTRADA
 # ============================================
-st.markdown("### 📝 Datos del Solicitante")
+st.markdown("### Datos del Solicitante")
 
 # --- Fila 1: Datos personales ---
 col1, col2, col3 = st.columns(3)
 
 with col1:
     no_of_dependents = st.number_input(
-        "👨‍👩‍👧‍👦 Número de Dependientes",
+        " Número de Dependientes",
         min_value=0,
         max_value=10,
         value=2,
@@ -224,7 +224,7 @@ with col1:
 
 with col2:
     education = st.selectbox(
-        "🎓 Nivel de Educación",
+        " Nivel de Educación",
         options=["Graduate", "Not Graduate"],
         index=0,
         help="Si el solicitante tiene título universitario o no"
@@ -232,7 +232,7 @@ with col2:
 
 with col3:
     self_employed = st.selectbox(
-        "💼 Trabajador Independiente",
+        "Trabajador Independiente",
         options=["No", "Yes"],
         index=0,
         help="Si el solicitante trabaja por cuenta propia"
@@ -246,7 +246,7 @@ col4, col5, col6 = st.columns(3)
 
 with col4:
     income_annum = st.number_input(
-        "📈 Ingreso Anual (USD)",
+        " Ingreso Anual (USD)",
         min_value=200_000,
         max_value=10_000_000,
         value=5_000_000,
@@ -257,7 +257,7 @@ with col4:
 
 with col5:
     loan_amount = st.number_input(
-        "💵 Monto del Préstamo (USD)",
+        " Monto del Préstamo (USD)",
         min_value=300_000,
         max_value=40_000_000,
         value=15_000_000,
@@ -268,7 +268,7 @@ with col5:
 
 with col6:
     loan_term = st.slider(
-        "📅 Plazo del Préstamo (meses)",
+        "Plazo del Préstamo (meses)",
         min_value=2,
         max_value=20,
         value=12,
@@ -277,7 +277,7 @@ with col6:
     )
 
 # --- Fila 3: Puntaje crediticio ---
-st.markdown("### 📋 Historial Crediticio")
+st.markdown("### Historial Crediticio")
 cibil_score = st.slider(
     "🏆 Puntaje CIBIL (Credit Score)",
     min_value=300,
@@ -300,12 +300,12 @@ else:
 st.divider()
 
 # --- Fila 4: Activos ---
-st.markdown("### 🏠 Valor de Activos")
+st.markdown("### Valor de Activos")
 col7, col8 = st.columns(2)
 
 with col7:
     residential_assets_value = st.number_input(
-        "🏠 Activos Residenciales (USD)",
+        " Activos Residenciales (USD)",
         min_value=0,
         max_value=30_000_000,
         value=7_000_000,
@@ -316,7 +316,7 @@ with col7:
 
 with col8:
     commercial_assets_value = st.number_input(
-        "🏢 Activos Comerciales (USD)",
+        " Activos Comerciales (USD)",
         min_value=0,
         max_value=20_000_000,
         value=3_000_000,
@@ -329,7 +329,7 @@ col9, col10 = st.columns(2)
 
 with col9:
     luxury_assets_value = st.number_input(
-        "💎 Activos de Lujo (USD)",
+        " Activos de Lujo (USD)",
         min_value=0,
         max_value=25_000_000,
         value=5_000_000,
@@ -340,7 +340,7 @@ with col9:
 
 with col10:
     bank_asset_value = st.number_input(
-        "🏧 Activos Bancarios (USD)",
+        "Activos Bancarios (USD)",
         min_value=0,
         max_value=15_000_000,
         value=4_000_000,
@@ -359,7 +359,7 @@ col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
 
 with col_btn2:
     predict_button = st.button(
-        "🔮 Predecir Aprobación del Préstamo",
+        " Predecir Aprobación del Préstamo",
         use_container_width=True,
         type="primary"
     )
@@ -400,7 +400,7 @@ if predict_button:
     if result["prediction"] == 1:
         st.markdown(f"""
         <div class="result-approved">
-            <h2>✅ Préstamo APROBADO</h2>
+            <h2>Préstamo APROBADO</h2>
             <p>El modelo predice que este préstamo será aprobado con una confianza del {result['confidence']}%</p>
         </div>
         """, unsafe_allow_html=True)
@@ -417,7 +417,7 @@ if predict_button:
         st.stop()
     
     # 5. Mostrar métricas detalladas
-    st.markdown("### 📊 Detalles de la Predicción")
+    st.markdown("### Detalles de la Predicción")
     
     m1, m2, m3, m4 = st.columns(4)
     
@@ -457,7 +457,7 @@ if predict_button:
         """, unsafe_allow_html=True)
     
     # 6. Resumen de datos ingresados
-    with st.expander("📋 Ver datos ingresados", expanded=False):
+    with st.expander(" Ver datos ingresados", expanded=False):
         summary_df = pd.DataFrame([input_data]).T
         summary_df.columns = ["Valor"]
         summary_df.index.name = "Variable"
@@ -470,7 +470,7 @@ if predict_button:
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #64748b; font-size: 0.85rem;">
-    <p>🎓 Inteligencia Artificial I — Actividad 3 | Fundación Universitaria Los Libertadores</p>
+    <p> Inteligencia Artificial I — Actividad 3 | Fundación Universitaria Los Libertadores</p>
     <p>Algoritmo: LightGBM | Dataset: Loan Approval Prediction (Kaggle, 4,269 registros)</p>
 </div>
 """, unsafe_allow_html=True)
