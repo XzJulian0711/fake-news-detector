@@ -1,7 +1,13 @@
 # ============================================
-# src/__init__.py — Loan Approval Predictor
+# src/__init__.py
 # ============================================
-# Este archivo hace que la carpeta src/ sea un paquete Python importable.
+# Hace que 'src' sea un paquete de Python y expone las
+# funciones principales del proyecto de detección de fake news.
 
-from .preprocessing import preprocess_input, load_encoders
+from .preprocessing import (
+    limpiar_texto,
+    cargar_y_combinar,
+    crear_vectorizador,
+    preprocess_input,
+)
 from .predict import load_model, make_prediction

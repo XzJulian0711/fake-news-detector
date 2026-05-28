@@ -1,154 +1,107 @@
 # ============================================
-# src/preprocessing.py — Funciones de preprocesamiento
+# src/preprocessing.py — Preprocesamiento de texto
 # ============================================
-# Limpieza y preparación de datos para el dataset de aprobación
-# de préstamos (Loan Approval), tanto para entrenamiento como
-# para la predicción en vivo desde la app web.
+# Limpia las noticias y las convierte a números con TF-IDF
+# para que LightGBM pueda clasificarlas como Falsas o Verdaderas.
 #
-# IMPORTANTE: El modelo LightGBM fue entrenado con 14 features:
-#   las 11 originales + 3 derivadas (feature engineering):
-#     - debt_to_income
-#     - total_assets
-#     - assets_to_loan
-# Estas 3 features se generan aquí para alimentar al modelo con el
-# formato EXACTO que vio durante el entrenamiento.
+# A diferencia del proyecto de préstamos (datos en columnas),
+# aquí el input es TEXTO, así que el paso central es la
+# vectorización TF-IDF.
 
+import re
 import pandas as pd
-import numpy as np
-import joblib
-import os
+from sklearn.feature_extraction.text import TfidfVectorizer
 
-# --- Mapeos de variables categóricas ---
-EDUCATION_MAP = {"Graduate": 1, "Not Graduate": 0}
-SELF_EMPLOYED_MAP = {"Yes": 1, "No": 0}
-
-# --- Orden EXACTO de las 14 features que espera el modelo ---
-FEATURE_COLS = [
-    "no_of_dependents", "education", "self_employed", "income_annum",
-    "loan_amount", "loan_term", "cibil_score", "residential_assets_value",
-    "commercial_assets_value", "luxury_assets_value", "bank_asset_value",
-    "debt_to_income", "total_assets", "assets_to_loan",
-]
-
-ASSET_COLS = [
-    "residential_assets_value", "commercial_assets_value",
-    "luxury_assets_value", "bank_asset_value",
+# Stopwords en español: palabras tan comunes que no ayudan a distinguir
+# (el, la, de, que...). Las quitamos para que el modelo se enfoque en
+# las palabras que sí tienen significado.
+STOPWORDS_ES = [
+    "el", "la", "los", "las", "de", "del", "y", "a", "en", "que", "es",
+    "un", "una", "unos", "unas", "por", "con", "para", "su", "sus", "se",
+    "no", "lo", "al", "como", "mas", "mas", "o", "le", "les", "ya", "este",
+    "esta", "estos", "estas", "ese", "esa", "esos", "esas", "fue", "han",
+    "ha", "hay", "son", "ser", "fue", "muy", "sin", "sobre", "tambien",
+    "me", "mi", "te", "tu", "nos", "pero", "si", "porque", "cuando", "donde",
 ]
 
 
-def _add_engineered_features(df: pd.DataFrame) -> pd.DataFrame:
+def limpiar_texto(texto: str) -> str:
     """
-    Agrega las 3 features derivadas con las MISMAS fórmulas del
-    entrenamiento. El '+ 1' en denominadores evita división por cero.
-        debt_to_income = loan_amount / (income_annum + 1)
-        total_assets   = suma de los 4 activos
-        assets_to_loan = total_assets / (loan_amount + 1)
+    Limpia un texto crudo para el modelo:
+    1. Lo pasa a minúsculas.
+    2. Quita URLs (http...).
+    3. Quita todo lo que no sean letras (números, signos, emojis).
+    4. Quita espacios sobrantes.
+
+    Devuelve el texto limpio, listo para vectorizar.
     """
-    df = df.copy()
-    df["debt_to_income"] = df["loan_amount"] / (df["income_annum"] + 1)
-    df["total_assets"] = df[ASSET_COLS].sum(axis=1)
-    df["assets_to_loan"] = df["total_assets"] / (df["loan_amount"] + 1)
+    texto = str(texto).lower()
+    texto = re.sub(r"http\S+", " ", texto)              # quitar enlaces
+    texto = re.sub(r"[^a-záéíóúñü\s]", " ", texto)      # solo letras españolas
+    texto = re.sub(r"\s+", " ", texto).strip()          # espacios sobrantes
+    return texto
+
+
+def cargar_y_combinar(ruta_train: str, ruta_dev: str) -> pd.DataFrame:
+    """
+    Carga los archivos train y development y los combina en un solo
+    DataFrame. (El archivo 'test' del corpus no trae etiquetas claras,
+    así que usamos train + development que sí están etiquetados.)
+
+    Crea dos columnas nuevas:
+    - 'target': 1 si la noticia es Falsa, 0 si es Verdadera.
+    - 'texto': el titular + el cuerpo de la noticia, ya limpios.
+    """
+    tr = pd.read_excel(ruta_train)
+    dv = pd.read_excel(ruta_dev)
+    df = pd.concat([tr, dv], ignore_index=True)
+
+    # Target binario: Fake -> 1, True -> 0
+    df["target"] = (df["Category"].astype(str).str.strip().str.lower() == "fake").astype(int)
+
+    # Combinar titular + texto (ambos aportan señales)
+    df["texto"] = (df["Headline"].fillna("") + " " + df["Text"].fillna(""))
+    df["texto"] = df["texto"].apply(limpiar_texto)
+
+    # Quitar noticias que quedaron casi vacías tras limpiar
+    df = df[df["texto"].str.len() > 10].reset_index(drop=True)
+
     return df
 
 
-def preprocess_input(data: dict) -> pd.DataFrame:
+def crear_vectorizador() -> TfidfVectorizer:
     """
-    Preprocesa los datos del formulario de Streamlit para la predicción.
-    1) DataFrame de una fila  2) codifica categóricas si son texto
-    3) crea las 3 derivadas   4) reordena a las 14 columnas del modelo.
+    Crea el vectorizador TF-IDF con la configuración del proyecto.
+
+    - max_features=3000: usa las 3000 palabras/combinaciones más útiles.
+    - ngram_range=(1,2): considera palabras sueltas Y pares de palabras
+      (ej: "agua milagrosa" como una sola señal).
+    - min_df=2: ignora palabras que aparecen en una sola noticia (ruido).
+    - stop_words: quita las palabras vacías en español.
+
+    OJO: este vectorizador se entrena (fit) en el notebook y se GUARDA
+    como vectorizer.pkl, porque la app lo necesita para procesar texto nuevo.
     """
-    df = pd.DataFrame([data])
-
-    if "education" in df.columns and df["education"].dtype == object:
-        df["education"] = df["education"].map(EDUCATION_MAP)
-    if "self_employed" in df.columns and df["self_employed"].dtype == object:
-        df["self_employed"] = df["self_employed"].map(SELF_EMPLOYED_MAP)
-
-    df = _add_engineered_features(df)
-    df = df[FEATURE_COLS]
-
-    # Asegurar tipos numéricos (LightGBM exige int/float/bool, no str)
-    df = df.apply(pd.to_numeric, errors="coerce")
-    return df
-
-
-def load_encoders(models_path="models/"):
-    """Carga scaler si existe. LightGBM no lo requiere, así que suele ser None."""
-    scaler_path = os.path.join(models_path, "scaler.pkl")
-    if os.path.exists(scaler_path):
-        return {"scaler": joblib.load(scaler_path)}
-    return None
-
-
-def clean_dataset(filepath: str) -> pd.DataFrame:
-    """
-    Limpia el dataset crudo y aplica el mismo feature engineering.
-    Devuelve el dataset con 14 features + target codificado.
-    """
-    df = pd.read_csv(filepath)
-    df.columns = df.columns.str.strip()
-    if "loan_id" in df.columns:
-        df = df.drop(columns=["loan_id"])
-
-    for col in df.select_dtypes(include=["object"]).columns:
-        df[col] = df[col].astype(str).str.strip()
-
-    for col in df.select_dtypes(include=[np.number]).columns:
-        if df[col].isnull().sum() > 0:
-            df[col] = df[col].fillna(df[col].median())
-    for col in df.select_dtypes(include=["object"]).columns:
-        if df[col].isnull().sum() > 0:
-            df[col] = df[col].fillna(df[col].mode()[0])
-
-    df = df.drop_duplicates()
-
-    if "education" in df.columns:
-        df["education"] = df["education"].map(EDUCATION_MAP)
-    if "self_employed" in df.columns:
-        df["self_employed"] = df["self_employed"].map(SELF_EMPLOYED_MAP)
-    if "loan_status" in df.columns:
-        df["loan_status"] = df["loan_status"].map({"Approved": 1, "Rejected": 0})
-
-    df = _add_engineered_features(df)
-    return df
-
-
-# ============================================
-# Pipeline para el NOTEBOOK de entrenamiento
-# ============================================
-# Lo usa notebooks/01_training.ipynb. Reutiliza clean_dataset()
-# (limpieza + las mismas 14 features) y añade el split train/test.
-
-from sklearn.model_selection import train_test_split
-
-TARGET_COL = "loan_status"
-
-
-def run_preprocessing_pipeline(raw_path: str, output_path: str = None,
-                               test_size: float = 0.2, random_state: int = 42):
-    """
-    Pipeline completo para entrenamiento:
-    limpia el CSV crudo, crea las 14 features, guarda el procesado
-    (opcional) y devuelve el split estratificado.
-
-    Garantiza que el notebook entrene con EXACTAMENTE las mismas
-    features que la app genera en vivo (reproducibilidad).
-
-    Retorna
-    -------
-    X_train, X_test, y_train, y_test
-    """
-    df = clean_dataset(raw_path)
-
-    if output_path:
-        df.to_csv(output_path, index=False)
-        print(f"[pipeline] Dataset procesado guardado en: {output_path}")
-
-    X = df.drop(columns=[TARGET_COL])
-    y = df[TARGET_COL]
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=random_state, stratify=y
+    return TfidfVectorizer(
+        max_features=3000,
+        ngram_range=(1, 2),
+        min_df=2,
+        stop_words=STOPWORDS_ES,
     )
-    print(f"[pipeline] Train: {len(X_train):,} | Test: {len(X_test):,} | Features: {X.shape[1]}")
-    return X_train, X_test, y_train, y_test
+
+
+def preprocess_input(texto: str, vectorizer: TfidfVectorizer):
+    """
+    Prepara UN texto escrito por el usuario en la app para predecir.
+
+    1. Limpia el texto (misma limpieza que en entrenamiento).
+    2. Lo transforma con el vectorizador YA entrenado.
+
+    Devuelve la matriz numérica lista para model.predict().
+
+    IMPORTANTE: usa .transform() (no .fit_transform()), porque el
+    vectorizador ya fue entrenado; aquí solo aplicamos lo aprendido.
+    """
+    texto_limpio = limpiar_texto(texto)
+    X = vectorizer.transform([texto_limpio])
+    return X
