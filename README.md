@@ -8,7 +8,7 @@ El usuario pega el titular o el cuerpo de una noticia en la aplicación y obtien
 
 ## Demostración
 
-- **Aplicación desplegada:** _(actualiza con la URL de tu despliegue en Streamlit Cloud)_
+- **Aplicación desplegada:** _[(actualiza con la URL de tu despliegue en Streamlit Cloud)](https://fake-news-detector-vmzgvo8jsoajvtozxgvh34.streamlit.app)_
 - **Dataset:** corpus de noticias en español etiquetadas (`Fake` / `True`), incluido en `data/raw/`.
 
 ---
@@ -21,6 +21,24 @@ La desinformación se propaga más rápido que las noticias verificadas y su det
 - `Verdadera` (0): la noticia presenta lenguaje consistente con fuentes reales.
 
 A diferencia de un clasificador "caja negra", la app también devuelve una **explicación**: las palabras del texto que más empujaron la decisión hacia falsa o verdadera.
+
+### ¿Por qué elegimos la detección de noticias falsas?
+
+- **Impacto social real:** la desinformación afecta procesos electorales, salud pública y la confianza en los medios. Es un problema vigente y medible, no un caso de estudio artificial.
+- **Reto de NLP en español:** la mayoría de detectores y corpus disponibles están en inglés. Trabajar sobre noticias en español es un problema menos cubierto y más cercano a nuestro contexto.
+- **Datos etiquetados y reproducibles:** existe un corpus académico abierto en español (`FakeNewsCorpusSpanish`), lo que permite entrenar, medir y comparar resultados de forma honesta.
+- **Encaja con el alcance del curso:** es un problema de clasificación supervisada donde se aplica el flujo completo (limpieza → vectorización → modelo → evaluación → despliegue) sin necesitar infraestructura de gran escala.
+- **Se presta a la explicabilidad:** el texto permite justificar la decisión palabra por palabra, lo que aporta valor pedagógico y de confianza frente a un modelo opaco.
+
+### ¿Qué ofrece de diferente frente a otros detectores?
+
+La mayoría de demos de detección de fake news se limitan a devolver una etiqueta (`Falsa`/`Verdadera`) sin contexto. Este proyecto se diferencia en:
+
+- **Explicación palabra por palabra:** muestra las palabras que más empujaron la decisión (vía `pred_contrib` de LightGBM), no solo el veredicto. El usuario ve *por qué*, no solo *qué*.
+- **Enfoque 100 % en español:** limpieza, *stopwords* y vocabulario TF-IDF pensados para el idioma, frente a la mayoría de herramientas centradas en inglés.
+- **Honestidad sobre la confianza:** reporta el % de confianza real y advierte cuando el texto tiene pocas palabras reconocidas, en lugar de fingir certeza absoluta.
+- **Reproducible y auditable de punta a punta:** corpus, notebook de entrenamiento, métricas y código de preprocesamiento compartido entre training y app están en el repositorio; cualquiera puede reentrenar y verificar.
+- **Ligero y sin caja negra remota:** corre con un modelo local (TF-IDF + LightGBM), sin depender de APIs externas ni LLMs de pago para clasificar.
 
 ---
 
@@ -113,7 +131,24 @@ Métricas reales obtenidas en `notebooks/01_training_Grupo5_1.ipynb` sobre el co
 | Variable objetivo    | `Category` → `target` (Fake = 1, True = 0)           |
 | Tipo de problema     | Clasificación binaria de texto                       |
 
-Archivos incluidos en el repositorio:
+### Fuente de los datos
+
+Los datos provienen del corpus académico abierto **FakeNewsCorpusSpanish** (Posadas-Durán et al.), un conjunto de noticias en español etiquetadas como `Fake` / `True`. Los archivos se descargaron directamente de su repositorio oficial:
+
+- Repositorio: https://github.com/jpposadas/FakeNewsCorpusSpanish
+- Train: https://github.com/jpposadas/FakeNewsCorpusSpanish/raw/master/train.xlsx
+- Development: https://github.com/jpposadas/FakeNewsCorpusSpanish/raw/master/development.xlsx
+- Test: https://github.com/jpposadas/FakeNewsCorpusSpanish/raw/master/test.xlsx
+
+### ¿Por qué usamos estos datasets?
+
+- **En español y etiquetado a mano:** uno de los pocos corpus de fake news en español con etiquetas `Fake`/`True` verificadas, ideal para entrenamiento supervisado.
+- **Balanceado:** ~50 % verdaderas y ~50 % falsas, lo que evita el sesgo hacia una clase y hace las métricas más confiables sin necesidad de remuestreo.
+- **Multitema:** cubre varios temas (política, salud, ciencia, etc.), así el modelo no aprende un único dominio.
+- **Split listo para usar:** ya viene separado en `train` y `development`, que combinamos para entrenar; `test` no trae etiqueta clara, por eso no se usa para medir.
+- **Abierto y reproducible:** al ser público, cualquiera puede descargar los mismos `.xlsx` y reproducir nuestros resultados.
+
+Archivos incluidos en el repositorio (copia local de las fuentes anteriores):
 
 ```text
 data/raw/train.xlsx          # noticias de entrenamiento
@@ -302,6 +337,7 @@ Inteligencia Artificial · Fundación Universitaria Los Libertadores
 3. Streamlit, "Streamlit Documentation," 2024. https://docs.streamlit.io/
 4. Scikit-learn Developers, "TfidfVectorizer Documentation." https://scikit-learn.org/stable/
 5. LightGBM Developers, "LightGBM Documentation." https://lightgbm.readthedocs.io/
+6. J. P. Posadas-Durán, H. Gómez-Adorno, G. Sidorov y J. J. M. Escobar, "Detection of fake news in a new corpus for the Spanish language," *Journal of Intelligent & Fuzzy Systems*, 2019. Corpus: https://github.com/jpposadas/FakeNewsCorpusSpanish
 
 ---
 
