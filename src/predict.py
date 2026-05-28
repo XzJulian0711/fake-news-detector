@@ -10,6 +10,7 @@
 
 import joblib
 import os
+import numpy as np
 
 
 def load_model(model_path="models/modelo.pkl", vectorizer_path="models/vectorizer.pkl"):
@@ -40,6 +41,53 @@ def load_model(model_path="models/modelo.pkl", vectorizer_path="models/vectorize
     return model, vectorizer
 
 
+def explain_prediction(X, prediction, model, vectorizer, top_n=6):
+    """
+    Explica POR QUÉ el modelo tomó su decisión, listando las palabras
+    de la noticia que más empujaron hacia la clase predicha.
+
+    Usa las contribuciones por característica de LightGBM (pred_contrib),
+    el equivalente a valores SHAP: para cada palabra presente en el texto
+    devuelve cuánto sumó a la predicción.
+        - contribución > 0  -> empuja hacia FALSA (clase 1)
+        - contribución < 0  -> empuja hacia VERDADERA (clase 0)
+
+    Parámetros
+    ----------
+    X : matriz TF-IDF dispersa del texto (salida de preprocess_input).
+    prediction : int, la clase que ganó (1 = Falsa, 0 = Verdadera).
+    model : el clasificador LightGBM ya cargado.
+    vectorizer : el TF-IDF ya cargado (para mapear índices -> palabras).
+    top_n : cuántas palabras influyentes devolver.
+
+    Devuelve
+    --------
+    list[dict] con {"word": str, "weight": float} ordenada por influencia,
+    solo de las palabras que empujaron hacia la clase predicha.
+    """
+    # validate_features=False evita el warning de nombres de columnas:
+    # el vectorizador entrega una matriz sin nombres y no los necesitamos.
+    contrib = model.booster_.predict(X, pred_contrib=True, validate_features=False)
+    contrib = np.asarray(contrib.todense() if hasattr(contrib, "todense") else contrib)
+    # La última columna es el valor base (sesgo), no una palabra.
+    contrib = contrib[0][:-1]
+
+    feature_names = vectorizer.get_feature_names_out()
+    present_idx = sorted(set(X.nonzero()[1]))
+
+    reasons = []
+    for i in present_idx:
+        weight = float(contrib[i])
+        # Solo palabras que apoyan la clase ganadora:
+        # si es Falsa (1) -> contribuciones positivas; si Verdadera (0) -> negativas.
+        supports = weight > 0 if prediction == 1 else weight < 0
+        if supports and abs(weight) > 1e-4:
+            reasons.append({"word": feature_names[i], "weight": abs(weight)})
+
+    reasons.sort(key=lambda r: -r["weight"])
+    return reasons[:top_n]
+
+
 def make_prediction(texto, model, vectorizer):
     """
     Clasifica una noticia como Verdadera o Falsa.
@@ -58,6 +106,7 @@ def make_prediction(texto, model, vectorizer):
         - label (str): etiqueta legible
         - probability_fake (float): probabilidad de que sea falsa (0 a 1)
         - confidence (float): % de confianza en la clase predicha
+        - reasons (list): palabras que más influyeron en la decisión
     """
     # Importamos aquí para evitar dependencias circulares
     from .preprocessing import preprocess_input
@@ -73,11 +122,15 @@ def make_prediction(texto, model, vectorizer):
         # 3. La confianza es la probabilidad de la clase que ganó
         confidence = prob_fake * 100 if prediction == 1 else (1 - prob_fake) * 100
 
+        # 4. Explicar la decisión con las palabras más influyentes
+        reasons = explain_prediction(X, prediction, model, vectorizer)
+
         return {
             "prediction": prediction,
-            "label": "Falsa " if prediction == 1 else "Verdadera ",
+            "label": "Falsa" if prediction == 1 else "Verdadera",
             "probability_fake": round(prob_fake, 4),
             "confidence": round(confidence, 2),
+            "reasons": reasons,
         }
     except Exception as e:
         return {
@@ -85,4 +138,5 @@ def make_prediction(texto, model, vectorizer):
             "label": f"Error: {str(e)}",
             "probability_fake": 0.0,
             "confidence": 0.0,
+            "reasons": [],
         }

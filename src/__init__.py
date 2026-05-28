@@ -10,4 +10,4 @@ from .preprocessing import (
     crear_vectorizador,
     preprocess_input,
 )
-from .predict import load_model, make_prediction
+from .predict import load_model, make_prediction, explain_prediction
