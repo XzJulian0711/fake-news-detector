@@ -1,247 +1,171 @@
-# Predictor de Aprobación de Préstamos con LightGBM
+# Detector de Noticias Falsas (Fake News) con LightGBM
 
-Sistema web de Machine Learning que predice si una solicitud de préstamo bancario será **Aprobada** o **Rechazada** usando el algoritmo **LightGBM**.
+Sistema web de Machine Learning que clasifica una noticia en español como **Falsa** o **Verdadera** usando **TF-IDF + LightGBM**, y explica **por qué** tomó la decisión mostrando las palabras que más influyeron.
 
-La aplicación está **localizada para Colombia**: el usuario ingresa montos en **Pesos Colombianos (COP)** y el puntaje crediticio en la escala oficial de **Datacrédito (150–950)**. Internamente, los valores se convierten al espacio en el que fue entrenado el modelo (INR + CIBIL 300–900) y el resultado se devuelve con la probabilidad y el nivel de confianza.
+El usuario pega el titular o el cuerpo de una noticia en la aplicación y obtiene, en una vista de dos columnas, el veredicto, el nivel de confianza y las palabras decisivas.
 
 ---
 
 ## Demostración
 
-- **Aplicación desplegada:** [https://loan-approval-predictor-xuszadwbpjrf6wjaj6yedh.streamlit.app](https://loan-approval-predictor-xuszadwbpjrf6wjaj6yedh.streamlit.app)
-- **Dataset:** [Loan Approval Prediction Dataset — Kaggle](https://www.kaggle.com/datasets/architsharma01/loan-approval-prediction-dataset)
+- **Aplicación desplegada:** _(actualiza con la URL de tu despliegue en Streamlit Cloud)_
+- **Dataset:** corpus de noticias en español etiquetadas (`Fake` / `True`), incluido en `data/raw/`.
 
 ---
 
 ## Problema que resuelve
 
-La aprobación de préstamos es un proceso crítico en la industria financiera. Tradicionalmente, muchas solicitudes se evalúan de forma manual, lo que puede generar demoras, inconsistencias y decisiones poco trazables.
+La desinformación se propaga más rápido que las noticias verificadas y su detección manual es lenta y costosa. Este proyecto automatiza una primera evaluación del texto de una noticia y la aborda como una tarea de **clasificación binaria**:
 
-Este proyecto automatiza una evaluación inicial de crédito a partir de los datos del solicitante y las características del préstamo. El problema se aborda como una tarea de **clasificación binaria**:
+- `Falsa` (1): la noticia presenta patrones de desinformación.
+- `Verdadera` (0): la noticia presenta lenguaje consistente con fuentes reales.
 
-- `Approved` (1): préstamo aprobado.
-- `Rejected` (0): préstamo rechazado.
-
-El caso de uso es fácil de demostrar: el usuario ingresa información financiera en la app y obtiene una respuesta inmediata.
+A diferencia de un clasificador "caja negra", la app también devuelve una **explicación**: las palabras del texto que más empujaron la decisión hacia falsa o verdadera.
 
 ---
 
 ## Solución propuesta
 
-La solución integra:
-
-1. **Dataset financiero:** registros históricos de solicitudes de préstamo (Kaggle).
-2. **Preprocesamiento reproducible:** limpieza, codificación de categóricas y feature engineering centralizado en `src/preprocessing.py`. El mismo módulo se usa en el notebook de entrenamiento y en la app, garantizando que el modelo siempre reciba el formato exacto que vio en entrenamiento.
-3. **Modelo LightGBM** entrenado en `notebooks/01_training_Grupo5.ipynb` y serializado a `models/modelo.pkl`.
-4. **Aplicación Streamlit** (`app/app.py`) con UI personalizada (CSS/JS propios en `app/static/`).
-5. **Localización Colombia:** conversión COP ↔ INR y Datacrédito ↔ CIBIL.
-6. **Script de verificación** (`scripts/verify_model.py`) que comprueba accuracy ≥ 98% y valida el pipeline de extremo a extremo.
-7. **Despliegue cloud** en Streamlit Cloud.
+1. **Corpus de noticias en español** etiquetadas como `Fake` / `True` (`data/raw/*.xlsx`).
+2. **Preprocesamiento de texto reproducible** centralizado en `src/preprocessing.py`: limpieza (minúsculas, sin URLs, solo letras), eliminación de *stopwords* en español y vectorización **TF-IDF**. El mismo módulo se usa en el entrenamiento y en la app.
+3. **Modelo LightGBM** entrenado en `notebooks/01_training_Grupo5_1.ipynb` y serializado a `models/modelo.pkl`. El vectorizador TF-IDF se guarda aparte en `models/vectorizer.pkl`.
+4. **Aplicación Streamlit** (`app/app.py`) minimalista de dos columnas, con CSS/JS propios en `app/static/`.
+5. **Explicabilidad**: `explain_prediction()` usa las contribuciones por característica de LightGBM (`pred_contrib`, equivalente a valores SHAP) para listar las palabras decisivas.
+6. **Despliegue cloud** en Streamlit Cloud.
 
 Flujo general:
 
 ```text
-Usuario (COP + Datacrédito)
+Usuario (texto de la noticia)
       ↓
-Conversión (cop_to_inr, datacredito_to_cibil)
+Limpieza de texto (limpiar_texto)
       ↓
-Preprocesamiento (14 features = 11 originales + 3 derivadas)
+Vectorización TF-IDF (vectorizer.pkl)
       ↓
 Modelo LightGBM (modelo.pkl)
       ↓
-Resultado: Aprobado / Rechazado + Probabilidad + Confianza
+Resultado: Falsa / Verdadera + Confianza + Palabras decisivas (por qué)
 ```
 
 ---
 
 ## Algoritmo Utilizado
 
-**LightGBM** (Light Gradient Boosting Machine) es un framework de gradient boosting desarrollado por Microsoft, basado en árboles de decisión.
+**LightGBM** (Light Gradient Boosting Machine), framework de gradient boosting de Microsoft basado en árboles de decisión, sobre una representación **TF-IDF** del texto.
 
 Se eligió por:
 
-- Alta eficiencia en datasets de tamaño mediano (4.269 registros).
-- Manejo nativo de variables categóricas codificadas.
-- Sin necesidad de normalización (modelos basados en árboles).
-- Excelente balance entre velocidad de entrenamiento y precisión.
-- Regularización incorporada (`reg_alpha`, `reg_lambda`) para prevenir sobreajuste.
-- Soporte de importancia de features (clave para interpretabilidad financiera).
-- Crecimiento *leaf-wise* + técnicas GOSS y EFB para máximo rendimiento.
+- Eficiencia sobre matrices dispersas de alta dimensión (3.000 features TF-IDF).
+- Buen balance entre velocidad de entrenamiento y precisión.
+- Crecimiento *leaf-wise* + GOSS/EFB para máximo rendimiento.
+- Soporte de contribuciones por feature (`pred_contrib`), clave para explicar la predicción palabra por palabra.
 
 ### Hiperparámetros usados
 
 ```python
-params = {
-    "objective":         "binary",
-    "metric":            "binary_logloss",
-    "boosting_type":     "gbdt",
-    "n_estimators":      300,
-    "learning_rate":     0.05,
-    "num_leaves":        31,
-    "max_depth":         -1,
-    "min_child_samples": 20,
-    "subsample":         0.8,
-    "colsample_bytree":  0.8,
-    "reg_alpha":         0.1,
-    "reg_lambda":        0.1,
-    "scale_pos_weight":  (y_train == 0).sum() / (y_train == 1).sum(),
-    "random_state":      42,
-}
+LGBMClassifier(
+    n_estimators=300,
+    learning_rate=0.05,
+    num_leaves=31,
+    max_depth=6,
+    random_state=42,
+    verbose=-1,
+)
 ```
 
-Entrenamiento con `early_stopping(50)` sobre el split de test → **173 árboles entrenados** en ~0,1 s.
+### Vectorizador TF-IDF
+
+```python
+TfidfVectorizer(
+    max_features=3000,     # las 3000 palabras/combinaciones más útiles
+    ngram_range=(1, 2),    # palabras sueltas y pares de palabras
+    min_df=2,              # ignora términos que aparecen en una sola noticia
+    stop_words=STOPWORDS_ES,
+)
+```
 
 ---
 
 ## Métricas de Desempeño
 
-Métricas reales obtenidas en `notebooks/01_training_Grupo5.ipynb` (test set estratificado 80/20, 854 registros):
+Métricas reales obtenidas en `notebooks/01_training_Grupo5_1.ipynb` sobre el conjunto de prueba (split estratificado 80/20, **195 noticias**):
 
-| Métrica          | Valor          |
-| ---------------- | -------------- |
-| **Accuracy**     | **99.77 %**    |
-| Precision        | 99.62 %        |
-| Recall           | 100.00 %       |
-| F1-Score         | 99.81 %        |
-| ROC-AUC          | 1.0000         |
-| CV ROC-AUC (5-fold) | 1.0000 ± 0.0000 |
+| Métrica              | Valor             |
+| -------------------- | ----------------- |
+| **Accuracy**         | **77.44 %**       |
+| Precision            | 77.66 %           |
+| Recall               | 76.04 %           |
+| F1-Score             | 76.84 %           |
+| ROC-AUC              | 84.50 %           |
+| CV ROC-AUC (5-fold)  | 0.8681 ± 0.0128   |
 
-El modelo **supera ampliamente** el umbral mínimo del curso (Accuracy > 70 %, ROC-AUC > 0.8) y el objetivo del proyecto de **≥ 98 %** de aciertos sobre préstamos aprobados/rechazados.
-
-> Para reproducir y verificar las métricas en tu máquina, ejecuta `python scripts/verify_model.py` (ver sección "Verificación del modelo").
+> Detección de texto en lenguaje natural: el desempeño es realista para un modelo TF-IDF + LightGBM sobre un corpus balanceado de ~1.000 noticias. No se espera la precisión casi perfecta de problemas tabulares.
 
 ---
 
 ## Dataset
 
-| Característica       | Detalle                                         |
-| -------------------- | ----------------------------------------------- |
-| Fuente               | Kaggle                                          |
-| Autor                | Archit Sharma                                   |
-| Registros            | 4.269 solicitudes                               |
-| Columnas             | 12 (11 predictivas + 1 target)                  |
-| Variable objetivo    | `loan_status`                                   |
-| Clases               | `Approved` (62,2 %) / `Rejected` (37,8 %)       |
-| Tipo de problema     | Clasificación binaria                           |
+| Característica       | Detalle                                              |
+| -------------------- | ---------------------------------------------------- |
+| Idioma               | Español                                              |
+| Registros etiquetados| 971 noticias (train + development)                   |
+| Clases               | `Verdadera` (491 · 50.6 %) / `Falsa` (480 · 49.4 %)  |
+| Variable objetivo    | `Category` → `target` (Fake = 1, True = 0)           |
+| Tipo de problema     | Clasificación binaria de texto                       |
 
 Archivos incluidos en el repositorio:
 
 ```text
-data/raw/loan_approval_dataset_RAW.csv
-data/processed/loan_approval_clean_PROCESSED.csv
+data/raw/train.xlsx          # noticias de entrenamiento
+data/raw/development.xlsx    # noticias de validación (se combinan con train)
+data/raw/test.xlsx           # noticias sin etiqueta clara (no se usan para métricas)
 ```
 
-### Variables originales
+### Columnas del corpus
 
-| Variable                   | Tipo        | Descripción                                  |
-| -------------------------- | ----------- | -------------------------------------------- |
-| `no_of_dependents`         | Numérica    | Número de dependientes del solicitante       |
-| `education`                | Categórica  | `Graduate` / `Not Graduate`                  |
-| `self_employed`            | Categórica  | `Yes` / `No`                                 |
-| `income_annum`             | Numérica    | Ingreso anual                                |
-| `loan_amount`              | Numérica    | Monto del préstamo solicitado                |
-| `loan_term`                | Numérica    | Plazo del préstamo (años)                    |
-| `cibil_score`              | Numérica    | Puntaje crediticio (300–900)                 |
-| `residential_assets_value` | Numérica    | Valor de activos residenciales               |
-| `commercial_assets_value`  | Numérica    | Valor de activos comerciales                 |
-| `luxury_assets_value`      | Numérica    | Valor de activos de lujo                     |
-| `bank_asset_value`         | Numérica    | Valor de activos bancarios                   |
-| **`loan_status`**          | **Target**  | **`Approved` / `Rejected`**                  |
+| Columna     | Uso                                                        |
+| ----------- | ---------------------------------------------------------- |
+| `Category`  | Etiqueta `Fake` / `True` → se convierte en `target` (1/0)  |
+| `Headline`  | Titular de la noticia → se combina en `texto`              |
+| `Text`      | Cuerpo de la noticia → se combina en `texto`               |
+| `Topic`, `Source`, `Link`, `Id` | Metadatos (no usados por el modelo)    |
 
-### Feature engineering (3 features derivadas)
-
-El módulo `src/preprocessing.py` añade automáticamente 3 features al pipeline. El modelo entrena y predice con **14 features en total**:
-
-| Feature derivada  | Fórmula                                |
-| ----------------- | -------------------------------------- |
-| `debt_to_income`  | `loan_amount / (income_annum + 1)`     |
-| `total_assets`    | suma de los 4 activos                  |
-| `assets_to_loan`  | `total_assets / (loan_amount + 1)`     |
-
-> El `+ 1` evita división por cero. Las mismas fórmulas se aplican en entrenamiento y en predicción en vivo, garantizando reproducibilidad.
+`src/preprocessing.py::cargar_y_combinar()` combina `train + development`, crea `target` (Fake → 1) y `texto` (`Headline + Text` ya limpios), y descarta noticias que quedan casi vacías tras la limpieza.
 
 ---
 
 ## Preprocesamiento
 
-El módulo `src/preprocessing.py` centraliza toda la preparación de datos:
+El módulo `src/preprocessing.py` centraliza toda la preparación de texto:
+
+- `limpiar_texto(texto)` — minúsculas, elimina URLs, deja solo letras (incluidas tildes y ñ), normaliza espacios.
+- `cargar_y_combinar(train, dev)` — arma el DataFrame de entrenamiento con `target` y `texto`.
+- `crear_vectorizador()` — construye el `TfidfVectorizer` con la configuración del proyecto.
+- `preprocess_input(texto, vectorizer)` — prepara **un** texto del usuario: lo limpia y lo transforma con `.transform()` (el vectorizador ya está entrenado).
+
+> El vectorizador se entrena (`fit`) en el notebook y se guarda como `models/vectorizer.pkl`. La app lo necesita para transformar texto nuevo al mismo espacio del entrenamiento.
+
+---
+
+## Explicabilidad — ¿por qué?
+
+`src/predict.py::explain_prediction()` calcula **por qué** el modelo decidió, usando las contribuciones por feature de LightGBM (`booster_.predict(X, pred_contrib=True)`, equivalente a valores SHAP):
+
+- Contribución **positiva** → la palabra empuja hacia **Falsa** (clase 1).
+- Contribución **negativa** → la palabra empuja hacia **Verdadera** (clase 0).
+
+La app toma las palabras presentes en el texto, se queda con las que apoyan la clase ganadora y muestra las **6 más influyentes** como chips de color. Si el texto tiene pocas palabras reconocidas por el vocabulario, la explicación es limitada y la app lo advierte.
+
+`make_prediction()` devuelve:
 
 ```python
-EDUCATION_MAP     = {"Graduate": 1, "Not Graduate": 0}
-SELF_EMPLOYED_MAP = {"Yes": 1, "No": 0}
-LOAN_STATUS_MAP   = {"Approved": 1, "Rejected": 0}
-```
-
-Orden exacto de las **14 columnas** que espera el modelo:
-
-```text
-no_of_dependents
-education
-self_employed
-income_annum
-loan_amount
-loan_term
-cibil_score
-residential_assets_value
-commercial_assets_value
-luxury_assets_value
-bank_asset_value
-debt_to_income
-total_assets
-assets_to_loan
-```
-
-Funciones principales:
-
-- `run_preprocessing_pipeline(raw_path, output_path)` — pipeline completo de entrenamiento (limpia, codifica, genera features, divide train/test estratificado 80/20).
-- `preprocess_input(data: dict)` — convierte el formulario de la app en un DataFrame con las 14 columnas en el orden correcto.
-- `clean_dataset(filepath)` — limpia el CSV crudo (duplicados, nulos, codificación) y agrega las 3 features derivadas.
-
----
-
-## Localización Colombia
-
-La app traduce las entradas del usuario al espacio en que vive el modelo:
-
-| Entrada del usuario              | Conversión              | Valor que recibe el modelo  |
-| -------------------------------- | ----------------------- | --------------------------- |
-| Pesos Colombianos (COP)          | `÷ 50` (`COP_PER_INR`)  | INR (escala de entrenamiento) |
-| Puntaje Datacrédito (150–950)    | Mapeo lineal            | CIBIL score (300–900)       |
-| `"Profesional"` / `"No Profesional"` | Mapeo ES → EN       | `"Graduate"` / `"Not Graduate"` |
-| `"Sí"` / `"No"`                  | Mapeo ES → EN           | `"Yes"` / `"No"`            |
-
-Clasificación del puntaje Datacrédito que muestra la app:
-
-- ≥ 781: Excelente
-- 671–780: Bueno
-- 561–670: Aceptable
-- 320–560: Riesgo medio
-- < 320: Alto riesgo
-
----
-
-## Verificación del modelo
-
-El script `scripts/verify_model.py` valida que el modelo entrenado:
-
-1. Exista en disco y exponga `predict` / `predict_proba`.
-2. Espere exactamente las 14 features definidas en `preprocessing.py`.
-3. Alcance **≥ 98 % de accuracy** sobre el test set y sobre el dataset completo.
-4. Funcione con el pipeline en vivo (`preprocess_input` + `make_prediction`) usando perfiles fuertes, débiles y los valores por defecto de la app.
-5. Funcione con `batch_predict` sobre el split de test.
-
-Ejecutar:
-
-```bash
-python scripts/verify_model.py
-```
-
-Salida esperada (resumen):
-
-```text
-[OK ] accuracy >= 98% (obtenido 0.9977)
-[OK ] accuracy global >= 98% (obtenido 0.99XX)
-MODELO VERIFICADO CORRECTAMENTE.
+{
+    "prediction": 1,            # 1 = Falsa, 0 = Verdadera
+    "label": "Falsa",
+    "probability_fake": 0.83,   # probabilidad de ser falsa (0–1)
+    "confidence": 82.66,        # % de confianza en la clase ganadora
+    "reasons": [{"word": "fuentes", "weight": 0.69}, ...],
+}
 ```
 
 ---
@@ -278,77 +202,59 @@ pip install -r requirements.txt
 streamlit run app/app.py
 ```
 
-La aplicación se abrirá automáticamente en `http://localhost:8501`.
+La aplicación se abre en `http://localhost:8501`.
 
 ### Reentrenar el modelo (opcional)
 
 ```bash
-jupyter notebook notebooks/01_training_Grupo5.ipynb
+jupyter notebook notebooks/01_training_Grupo5_1.ipynb
 ```
 
-Al ejecutar todas las celdas se regenera `models/modelo.pkl` y `models/feature_cols.json`.
+Al ejecutar todas las celdas se regeneran `models/modelo.pkl` y `models/vectorizer.pkl`.
 
 ---
 
 ## Uso de la Aplicación
 
 1. Abre la app (local o desplegada).
-2. Completa el formulario en sus 4 secciones:
-   - **Datos del solicitante:** dependientes, educación, situación laboral.
-   - **Información financiera:** ingreso anual (COP), monto del préstamo (COP), plazo en años.
-   - **Historial crediticio:** puntaje Datacrédito (150–950).
-   - **Valor de activos:** residenciales, comerciales, de lujo y bancarios (COP).
-3. Haz clic en **"Predecir Aprobación del Préstamo"**.
-4. Visualiza:
-   - **Resultado**: Aprobado / Rechazado.
-   - **Probabilidad** del modelo.
-   - **Confianza** de la clasificación.
-   - **Razón Préstamo / Ingreso** y total de activos.
-5. Opcional: expande "Ver datos ingresados" para auditar los valores.
-
-Ejemplo de salida:
-
-```text
-Resultado: Préstamo APROBADO
-Probabilidad: 99.4 %
-Confianza:    99.4 %
-Razón Préstamo/Ingreso: 3.00x
-```
+2. Pega el titular o el cuerpo de una noticia en el cuadro de texto de la izquierda.
+3. Haz clic en **"Analizar noticia"**.
+4. En la columna derecha visualiza:
+   - **Veredicto:** Noticia Falsa (rojo) / Noticia Verdadera (verde).
+   - **Confianza** del modelo (barra animada).
+   - **Por qué:** las palabras que más influyeron en la decisión.
 
 ---
 
 ## Estructura del Proyecto
 
 ```text
-loan-approval-predictor/
+fake-news-detector/
 ├── README.md                                    # Este archivo
 ├── requirements.txt                             # Dependencias Python
 ├── .gitignore
 ├── .streamlit/
 │   └── config.toml                              # Configuración Streamlit (static serving)
 ├── app/
-│   ├── app.py                                   # Aplicación web Streamlit (Colombia)
+│   ├── app.py                                   # Aplicación web Streamlit (fake news)
 │   └── static/
-│       ├── css/styles.css                       # Estilos personalizados
-│       ├── js/dashboard.js                      # Animaciones de métricas
-│       └── img/logo.svg                         # Logo de la app
+│       ├── css/styles.css                       # Estilos minimalistas
+│       └── js/dashboard.js                       # Animación de la barra de confianza
 ├── data/
-│   ├── raw/
-│   │   └── loan_approval_dataset_RAW.csv        # Dataset original
-│   └── processed/
-│       └── loan_approval_clean_PROCESSED.csv    # Dataset limpio con 14 features
+│   └── raw/
+│       ├── train.xlsx                           # Noticias de entrenamiento
+│       ├── development.xlsx                     # Noticias de validación
+│       └── test.xlsx                            # Noticias sin etiqueta clara
 ├── models/
-│   ├── modelo.pkl                               # LightGBM serializado
-│   └── feature_cols.json                        # Orden de las 14 features
+│   ├── modelo.pkl                               # Clasificador LightGBM serializado
+│   └── vectorizer.pkl                           # Vectorizador TF-IDF entrenado
 ├── notebooks/
-│   └── 01_training_Grupo5.ipynb                 # Entrenamiento, EDA y métricas
-├── scripts/
-│   └── verify_model.py                          # Verificación end-to-end (≥ 98 %)
+│   └── 01_training_Grupo5_1.ipynb               # Entrenamiento, EDA y métricas
 ├── src/
 │   ├── __init__.py
-│   ├── preprocessing.py                         # Limpieza + feature engineering
-│   └── predict.py                               # Carga del modelo y predicción
-└── docs/                                        # Imágenes EDA y diagramas
+│   ├── preprocessing.py                         # Limpieza de texto + TF-IDF
+│   └── predict.py                               # Carga, predicción y explicación
+└── docs/                                        # Imágenes EDA y matriz de confusión
 ```
 
 ---
@@ -357,9 +263,10 @@ loan-approval-predictor/
 
 - Python 3.11+
 - Pandas, NumPy
-- Scikit-learn
+- Scikit-learn (TF-IDF)
 - **LightGBM 4.x**
 - Joblib (serialización)
+- openpyxl (lectura de `.xlsx`)
 - Matplotlib, Seaborn (EDA)
 - **Streamlit** (frontend)
 - GitHub + Streamlit Cloud (despliegue)
@@ -368,37 +275,37 @@ loan-approval-predictor/
 
 ## Autores — Grupo 10
 
-Inteligencia Artificial I · Fundación Universitaria Los Libertadores
+Inteligencia Artificial · Fundación Universitaria Los Libertadores
 
-| Nombre                            | Rol                          | Responsabilidades                                            |
-| --------------------------------- | ---------------------------- | ------------------------------------------------------------ |
-| **Juan Sebastian Vasques Peña** | Data & ML Engineer           | Dataset, EDA, entrenamiento LightGBM, serialización y verificación |
-| **Julian Camilo Cárdenas Torres** | App Developer & DevOps       | Aplicación Streamlit, localización Colombia, despliegue cloud |
-| **Jhon Alexander Vargas Catuche**   | Technical Writer & QA        | Documentación, presentación, validación de métricas          |
+| Nombre                              | Rol                    | Responsabilidades                                              |
+| ----------------------------------- | ---------------------- | -------------------------------------------------------------- |
+| **Juan Sebastian Vasques Peña**     | Data & ML Engineer     | Corpus, EDA, vectorización TF-IDF, entrenamiento LightGBM      |
+| **Julian Camilo Cárdenas Torres**   | App Developer & DevOps | Aplicación Streamlit, explicabilidad, despliegue cloud         |
+| **Jhon Alexander Vargas Catuche**   | Technical Writer & QA  | Documentación, presentación, validación de métricas            |
 
 ---
 
 ## Trabajo futuro
 
-- Agregar explicabilidad con **SHAP** sobre cada predicción individual.
+- Ampliar el corpus y reentrenar para mejorar el accuracy por encima del 77 %.
+- Probar embeddings (Word2Vec / transformers) frente a TF-IDF.
+- Mostrar resaltado de las palabras decisivas directamente sobre el texto.
 - Exponer un slider del umbral de decisión (actualmente 0.5) en la app.
 - Añadir suite de pruebas (`pytest`) para `src/preprocessing.py` y `src/predict.py`.
-- Calibrar probabilidades con `CalibratedClassifierCV`.
-- Permitir cargar un CSV con múltiples solicitudes para predicción en lote desde la UI.
 
 ---
 
 ## Referencias
 
-1. G. Ke, Q. Meng, T. Finley, T. Wang, W. Chen, W. Ma, Q. Ye y T.-Y. Liu, "LightGBM: A Highly Efficient Gradient Boosting Decision Tree," *Advances in Neural Information Processing Systems*, vol. 30, 2017.
-2. A. Sharma, "Loan Approval Prediction Dataset," Kaggle, 2023. [En línea]. Disponible en: https://www.kaggle.com/datasets/architsharma01/loan-approval-prediction-dataset
-3. Streamlit, "Streamlit Documentation," 2024. [En línea]. Disponible en: https://docs.streamlit.io/
-4. Scikit-learn Developers, "Scikit-learn Documentation," 2024. [En línea]. Disponible en: https://scikit-learn.org/stable/
-5. LightGBM Developers, "LightGBM Documentation." [En línea]. Disponible en: https://lightgbm.readthedocs.io/
+1. G. Ke, Q. Meng, T. Finley, et al., "LightGBM: A Highly Efficient Gradient Boosting Decision Tree," *Advances in Neural Information Processing Systems*, vol. 30, 2017.
+2. S. M. Lundberg y S.-I. Lee, "A Unified Approach to Interpreting Model Predictions," *NeurIPS*, 2017. (Base teórica de `pred_contrib`.)
+3. Streamlit, "Streamlit Documentation," 2024. https://docs.streamlit.io/
+4. Scikit-learn Developers, "TfidfVectorizer Documentation." https://scikit-learn.org/stable/
+5. LightGBM Developers, "LightGBM Documentation." https://lightgbm.readthedocs.io/
 
 ---
 
 ## Licencia
 
-Proyecto académico para la asignatura **Inteligencia Artificial I** — Actividad 3.
+Proyecto académico para la asignatura **Inteligencia Artificial**.
 Distribuido bajo Licencia MIT si el equipo decide publicarlo en abierto.
