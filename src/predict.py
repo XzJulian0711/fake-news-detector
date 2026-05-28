@@ -1,11 +1,11 @@
 # ============================================
 # src/predict.py — Funciones de predicción
 # ============================================
-# Carga el modelo LightGBM y el vectorizador TF-IDF, y clasifica
-# una noticia (texto) como Verdadera o Falsa.
+# Carga el modelo (Regresión Logística) y el vectorizador TF-IDF, y
+# clasifica una noticia (texto) como Verdadera o Falsa.
 #
-# A diferencia de préstamos, aquí se cargan DOS archivos:
-#   - modelo.pkl      (el clasificador LightGBM)
+# Se cargan DOS archivos:
+#   - modelo.pkl      (el clasificador lineal)
 #   - vectorizer.pkl  (el TF-IDF que convierte texto en números)
 
 import joblib
@@ -46,9 +46,13 @@ def explain_prediction(X, prediction, model, vectorizer, top_n=6):
     Explica POR QUÉ el modelo tomó su decisión, listando las palabras
     de la noticia que más empujaron hacia la clase predicha.
 
-    Usa las contribuciones por característica de LightGBM (pred_contrib),
-    el equivalente a valores SHAP: para cada palabra presente en el texto
-    devuelve cuánto sumó a la predicción.
+    El modelo es una Regresión Logística sobre TF-IDF. En un modelo
+    lineal, la contribución de cada palabra a la decisión es:
+
+        contribución_i = coef_i * tfidf_i
+
+    donde coef_i es el peso aprendido para esa palabra y tfidf_i su valor
+    en este texto. El signo del coeficiente indica la dirección:
         - contribución > 0  -> empuja hacia FALSA (clase 1)
         - contribución < 0  -> empuja hacia VERDADERA (clase 0)
 
@@ -56,7 +60,7 @@ def explain_prediction(X, prediction, model, vectorizer, top_n=6):
     ----------
     X : matriz TF-IDF dispersa del texto (salida de preprocess_input).
     prediction : int, la clase que ganó (1 = Falsa, 0 = Verdadera).
-    model : el clasificador LightGBM ya cargado.
+    model : el clasificador lineal ya cargado (expone .coef_).
     vectorizer : el TF-IDF ya cargado (para mapear índices -> palabras).
     top_n : cuántas palabras influyentes devolver.
 
@@ -65,24 +69,19 @@ def explain_prediction(X, prediction, model, vectorizer, top_n=6):
     list[dict] con {"word": str, "weight": float} ordenada por influencia,
     solo de las palabras que empujaron hacia la clase predicha.
     """
-    # validate_features=False evita el warning de nombres de columnas:
-    # el vectorizador entrega una matriz sin nombres y no los necesitamos.
-    contrib = model.booster_.predict(X, pred_contrib=True, validate_features=False)
-    contrib = np.asarray(contrib.todense() if hasattr(contrib, "todense") else contrib)
-    # La última columna es el valor base (sesgo), no una palabra.
-    contrib = contrib[0][:-1]
-
+    coef = np.asarray(model.coef_).ravel()  # un peso por palabra del vocabulario
     feature_names = vectorizer.get_feature_names_out()
-    present_idx = sorted(set(X.nonzero()[1]))
 
+    # X es disperso (1, n_features); recorremos solo las palabras presentes.
+    Xc = X.tocoo()
     reasons = []
-    for i in present_idx:
-        weight = float(contrib[i])
+    for j, val in zip(Xc.col, Xc.data):
+        weight = float(coef[j] * val)
         # Solo palabras que apoyan la clase ganadora:
         # si es Falsa (1) -> contribuciones positivas; si Verdadera (0) -> negativas.
         supports = weight > 0 if prediction == 1 else weight < 0
-        if supports and abs(weight) > 1e-4:
-            reasons.append({"word": feature_names[i], "weight": abs(weight)})
+        if supports and abs(weight) > 1e-6:
+            reasons.append({"word": feature_names[j], "weight": abs(weight)})
 
     reasons.sort(key=lambda r: -r["weight"])
     return reasons[:top_n]
@@ -96,7 +95,7 @@ def make_prediction(texto, model, vectorizer):
     ----------
     texto : str
         La noticia (titular y/o cuerpo) escrita por el usuario.
-    model : el clasificador LightGBM ya cargado.
+    model : el clasificador lineal ya cargado.
     vectorizer : el TF-IDF ya cargado.
 
     Devuelve

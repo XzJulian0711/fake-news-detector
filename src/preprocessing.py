@@ -2,7 +2,7 @@
 # src/preprocessing.py — Preprocesamiento de texto
 # ============================================
 # Limpia las noticias y las convierte a números con TF-IDF
-# para que LightGBM pueda clasificarlas como Falsas o Verdaderas.
+# para que la Regresión Logística pueda clasificarlas como Falsas o Verdaderas.
 #
 # A diferencia del proyecto de préstamos (datos en columnas),
 # aquí el input es TEXTO, así que el paso central es la
@@ -73,19 +73,22 @@ def crear_vectorizador() -> TfidfVectorizer:
     """
     Crea el vectorizador TF-IDF con la configuración del proyecto.
 
-    - max_features=3000: usa las 3000 palabras/combinaciones más útiles.
+    - max_features=30000: vocabulario amplio (las combinaciones más útiles).
     - ngram_range=(1,2): considera palabras sueltas Y pares de palabras
       (ej: "agua milagrosa" como una sola señal).
-    - min_df=2: ignora palabras que aparecen en una sola noticia (ruido).
+    - min_df=3: ignora términos que aparecen en menos de 3 noticias (ruido).
+    - sublinear_tf=True: usa 1+log(tf) en vez de tf crudo; suaviza el peso
+      de palabras muy repetidas y mejora la clasificación de texto.
     - stop_words: quita las palabras vacías en español.
 
     OJO: este vectorizador se entrena (fit) en el notebook y se GUARDA
     como vectorizer.pkl, porque la app lo necesita para procesar texto nuevo.
     """
     return TfidfVectorizer(
-        max_features=3000,
+        max_features=30000,
         ngram_range=(1, 2),
-        min_df=2,
+        min_df=3,
+        sublinear_tf=True,
         stop_words=STOPWORDS_ES,
     )
 

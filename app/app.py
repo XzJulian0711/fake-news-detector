@@ -3,7 +3,7 @@
 # ============================================
 # Detector de Noticias Falsas (Fake News).
 # El usuario pega una noticia (titular y/o cuerpo) y el modelo
-# LightGBM + TF-IDF la clasifica como FALSA o VERDADERA, mostrando
+# Regresión Logística + TF-IDF la clasifica como FALSA o VERDADERA, mostrando
 # además POR QUÉ: las palabras que más influyeron en la decisión.
 #
 # Interfaz minimalista de dos columnas:
@@ -207,7 +207,7 @@ with col_result:
                     <p class="why__intro">{why_intro}</p>
                     <div class="why__chips">{chips}</div>
                     <p class="why__note">Las palabras con mayor peso según el
-                    modelo (TF-IDF + LightGBM) en esta noticia.</p>
+                    modelo (TF-IDF + Regresión Logística) en esta noticia.</p>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -224,18 +224,6 @@ with col_result:
             )
 
 
-# ============================================
-# FOOTER
-# ============================================
-st.markdown(
-    """
-    <div class="app-footer">
-        <p class="app-footer__brand">Detector de Noticias Falsas</p>
-        <p>Inteligencia Artificial — Modelo LightGBM + TF-IDF · Texto en español</p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
 
 
 # ============================================

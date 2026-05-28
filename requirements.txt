@@ -1,15 +1,13 @@
 # ============================================
-# requirements.txt — Loan Approval Predictor
+# requirements.txt — Detector de Noticias Falsas
 # ============================================
 # Instalar con: pip install -r requirements.txt
 
 # --- Core Data Science ---
+# scikit-learn provee TF-IDF y la Regresión Logística (algoritmo principal).
 numpy>=1.24.0
 pandas>=2.0.0
 scikit-learn>=1.3.0
-
-# --- LightGBM (algoritmo principal) ---
-lightgbm>=4.0.0
 
 # --- Serialización del modelo ---
 joblib>=1.3.0
