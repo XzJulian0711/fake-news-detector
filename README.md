@@ -308,7 +308,8 @@ fake-news-detector/
 
 ---
 
-## Autores — Grupo 10
+## Autores — Grupo 5
+
 
 Inteligencia Artificial · Fundación Universitaria Los Libertadores
 
