@@ -8,7 +8,7 @@ El usuario pega el titular o el cuerpo de una noticia en la aplicación y obtien
 
 ## Demostración
 
-- **Aplicación desplegada:** _[(actualiza con la URL de tu despliegue en Streamlit Cloud)](https://fake-news-detector-vmzgvo8jsoajvtozxgvh34.streamlit.app)_
+- **Aplicación desplegada:** _[(https://fake-news-detector-vmzgvo8jsoajvtozxgvh34.streamlit.app)](https://fake-news-detector-vmzgvo8jsoajvtozxgvh34.streamlit.app)_
 - **Dataset:** corpus de noticias en español etiquetadas (`Fake` / `True`), incluido en `data/raw/`.
 
 ---
