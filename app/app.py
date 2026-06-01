@@ -3,7 +3,7 @@
 # ============================================
 # Detector de Noticias Falsas (Fake News).
 # El usuario pega una noticia (titular y/o cuerpo) y el modelo
-# Regresión Logística + TF-IDF la clasifica como FALSA o VERDADERA, mostrando
+# TF-IDF + LightGBM la clasifica como FALSA o VERDADERA, mostrando
 # además POR QUÉ: las palabras que más influyeron en la decisión.
 #
 # Interfaz minimalista de dos columnas:
@@ -17,7 +17,7 @@
 
 import streamlit as st
 import streamlit.components.v1 as components
-import os
+import os 
 import sys
 from pathlib import Path
 
@@ -105,12 +105,33 @@ col_input, col_result = st.columns([1, 1], gap="large")
 
 with col_input:
     st.markdown('<div class="panel-title">Noticia a analizar</div>', unsafe_allow_html=True)
+
+    # --- INPUT 1: el texto de la noticia ---
     texto = st.text_area(
         "Texto de la noticia",
-        height=320,
+        height=240,
         placeholder="Pega aquí el titular y el cuerpo de la noticia...",
         label_visibility="collapsed",
     )
+
+    # --- INPUT 2: qué parte del texto analizar ---
+    parte = st.selectbox(
+        "¿Qué quieres analizar?",
+        options=["Titular y cuerpo", "Solo el titular"],
+        help="Elige si el modelo evalúa todo el texto o solo la primera línea (el titular).",
+    )
+
+    # --- INPUT 3: umbral de sensibilidad ---
+    umbral = st.slider(
+        "Sensibilidad del detector",
+        min_value=0.30,
+        max_value=0.90,
+        value=0.50,
+        step=0.05,
+        help="Más alto = el modelo solo marca 'Falsa' cuando está muy seguro. "
+             "Más bajo = marca 'Falsa' más fácilmente.",
+    )
+
     analizar = st.button("Analizar noticia", type="primary", use_container_width=True)
 
 
@@ -138,7 +159,14 @@ with col_result:
             unsafe_allow_html=True,
         )
     else:
-        result = make_prediction(texto, model, vectorizer)
+        # Aplicar el INPUT 2: si eligió "Solo el titular", tomamos la primera línea
+        if parte == "Solo el titular":
+            texto_a_analizar = texto.strip().split("\n")[0]
+        else:
+            texto_a_analizar = texto
+
+        # Pasar el INPUT 3 (umbral) a la predicción
+        result = make_prediction(texto_a_analizar, model, vectorizer, umbral=umbral)
 
         if result["prediction"] == -1:
             st.error(f"Error en la predicción: {result['label']}")
@@ -207,7 +235,7 @@ with col_result:
                     <p class="why__intro">{why_intro}</p>
                     <div class="why__chips">{chips}</div>
                     <p class="why__note">Las palabras con mayor peso según el
-                    modelo (TF-IDF + Regresión Logística) en esta noticia.</p>
+                    modelo (TF-IDF + LightGBM) en esta noticia.</p>
                 </div>
                 """,
                 unsafe_allow_html=True,

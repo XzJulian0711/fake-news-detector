@@ -89,25 +89,24 @@ def explain_prediction(X, prediction, model, vectorizer, top_n=6):
     return reasons[:top_n]
 
 
-def make_prediction(texto, model, vectorizer):
+def make_prediction(texto, model, vectorizer, umbral=0.5):
     """
     Clasifica una noticia como Verdadera o Falsa.
 
     Parámetros
     ----------
     texto : str
-        La noticia (titular y/o cuerpo) escrita por el usuario.
+        La noticia ya preparada (titular y/o cuerpo según eligió el usuario).
     model : el clasificador LightGBM ya cargado.
     vectorizer : el TF-IDF ya cargado.
+    umbral : float (0 a 1)
+        Probabilidad mínima de "Falsa" para clasificarla como Falsa.
+        Por defecto 0.5. Si el usuario lo sube (ej. 0.7), el modelo se
+        vuelve más conservador: solo dice "Falsa" cuando está muy seguro.
 
     Devuelve
     --------
-    dict con:
-        - prediction (int): 1 = Falsa, 0 = Verdadera
-        - label (str): etiqueta legible
-        - probability_fake (float): probabilidad de que sea falsa (0 a 1)
-        - confidence (float): % de confianza en la clase predicha
-        - reasons (list): palabras que más influyeron en la decisión
+    dict con prediction, label, probability_fake, confidence, reasons.
     """
     from .preprocessing import preprocess_input
 
@@ -115,19 +114,17 @@ def make_prediction(texto, model, vectorizer):
         # 1. Convertir el texto en números con el vectorizador
         X = preprocess_input(texto, vectorizer)
 
-        # El modelo se entrenó con un DataFrame, así que guarda nombres de
-        # columna ('Column_0', 'Column_1', ...). Le pasamos esos mismos
-        # nombres para evitar el UserWarning de sklearn sobre feature names.
-        X_named = pd.DataFrame(X.toarray(), columns=model.feature_names_in_)
+        # 2. Obtener la probabilidad de que sea Falsa
+        prob_fake = float(model.predict_proba(X)[0][1])
 
-        # 2. Predecir clase y probabilidad
-        prediction = int(model.predict(X_named)[0])
-        prob_fake = float(model.predict_proba(X_named)[0][1])
+        # 3. Aplicar el UMBRAL elegido por el usuario (input nuevo)
+        #    En vez del 0.5 fijo de model.predict(), usamos el umbral.
+        prediction = 1 if prob_fake >= umbral else 0
 
-        # 3. La confianza es la probabilidad de la clase que ganó
+        # 4. La confianza es la probabilidad de la clase que ganó
         confidence = prob_fake * 100 if prediction == 1 else (1 - prob_fake) * 100
 
-        # 4. Explicar la decisión con las palabras más influyentes (pred_contrib)
+        # 5. Explicar la decisión con las palabras más influyentes
         reasons = explain_prediction(X, prediction, model, vectorizer)
 
         return {
